@@ -1,13 +1,15 @@
 import asyncio
+import io
 import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from PIL import Image
 from .models import (SiteStartupMode,
                      TunnelProvider, SavedConfig)
 from .routes.alert_routes import router as alert_router
@@ -24,6 +26,7 @@ from .utils.config import (get_ssl_private_key_temporary_path,
                            DEVICE_TYPE, SUCCESS_LABEL,
                            get_config, update_config, init_config)
 from .utils.inference_lib import get_inference_engine
+from .utils.model_utils import _run_inference
 from .utils.cloudflare_utils import (start_cloudflare_tunnel, stop_cloudflare_tunnel)
 
 @asynccontextmanager
@@ -35,6 +38,7 @@ async def lifespan(app_instance: FastAPI):
     """
     # pylint: disable=C0415
     from .utils.setup_utils import startup_mode_requirements_met
+    init_config()
     startup_mode = startup_mode_requirements_met()
     inference_engine = get_inference_engine()
     if startup_mode is SiteStartupMode.SETUP:
@@ -140,6 +144,42 @@ async def http_redirect_middleware(request: Request, call_next):
             return RedirectResponse(url="/setup", status_code=307)
     response = await call_next(request)
     return response
+
+@app.post("/api/external/detect")
+async def external_detect(request: Request, file: UploadFile = File(...)):
+    if request.app.state.model is None or request.app.state.transform is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    try:
+        try:
+            image_bytes = await file.read()
+            image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid image upload: {e}") from e
+
+        tensor = request.app.state.transform(image).unsqueeze(0).to(request.app.state.device)
+        prediction = await _run_inference(
+            request.app.state.model,
+            tensor,
+            request.app.state.prototypes,
+            request.app.state.defect_idx,
+            request.app.state.device,
+        )
+        numeric = prediction[0] if isinstance(prediction, list) else prediction
+
+        is_failure = bool(
+            isinstance(numeric, int)
+            and request.app.state.defect_idx >= 0
+            and numeric == request.app.state.defect_idx
+        )
+        failure_score = 1.0 if is_failure else 0.0
+
+        return {
+            "filename": file.filename,
+            "failure_score": failure_score,
+            "is_failure": is_failure,
+        }
+    finally:
+        await file.close()
 
 def run():
     """

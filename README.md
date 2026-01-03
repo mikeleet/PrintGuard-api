@@ -90,3 +90,26 @@ After installation, you will need to configure PrintGuard. First, visit the setu
   | ![PrintGuard Setup Settings](docs/media/images/interface-setup-settings.png) | Accessible via the configure setup button in the settings menu, the setup page allows configuration of camera feed streaming settings such as resolution and frame rate, as well as polling intervals and detection rates. |
   | ![PrintGuard Alerts and Notifications](docs/media/images/interface-alerts-notifications.png) | When a failure is detected a notification is dispatched to subscribed devices via web push notifications, allowing users to get real-time alerts and updates about their print. On the web interface, an alert modal appears showing a snapshot of the failure and buttons to dismiss the alert or suspend/cancel the print job. If the alert is not addressed within the customisable countdown time, the printer will automatically be suspended, cancelled or resumed based on user settings. |
   | | |
+
+## External Detection API
+
+PrintGuard can also accept an externally-provided image (e.g. from a different server) and return a failure classification.
+
+### `POST /api/external/detect`
+
+Accepts a multipart form upload with a single file field named `file`.
+
+Example (HTTPS with self-signed certs):
+```bash
+curl -k -X POST "https://localhost:8000/api/external/detect" \
+  -F "file=@/path/to/image.jpg"
+```
+
+Example response:
+```json
+{
+  "filename": "image.jpg",
+  "failure_score": 1.0,
+  "is_failure": true
+}
+```
