@@ -81,20 +81,19 @@ Example TrueNAS Custom App deployment YAML:
 ```yaml
 services:
   printguard:
-    environment:
-      - PRINTGUARD_SECRET_KEY=MYKEY
-    image: ghcr.io/mikeleet/printguard:latest
+    image: ghcr.io/mikeleet/printguard-api:latest
+    restart: unless-stopped
+    privileged: true
     network_mode: bridge
     ports:
-      - "8000:8000"
-    privileged: true
-    restart: unless-stopped
+      # External Port 8000 maps to Internal Port 8000
+      - 8000:8000
     volumes:
       - printguard_data:/data
       - /etc/localtime:/etc/localtime:ro
 
 volumes:
-  printguard_data: null
+  printguard_data:
 ```
 
 Docker run equivalent:
@@ -102,12 +101,12 @@ Docker run equivalent:
 docker run --name printguard \
   -p 8000:8000 \
   -v "/mnt/<pool>/<dataset>/printguard-data:/data" \
-  ghcr.io/mikeleet/printguard:latest
+  ghcr.io/mikeleet/printguard-api:latest
 ```
 
 TrueNAS Custom App fields (UI):
 
-- **Image repository**: `ghcr.io/mikeleet/printguard`
+- **Image repository**: `ghcr.io/mikeleet/printguard-api`
 - **Image tag**: `latest`
 - **Port forwarding**:
   - **Container port**: `8000`
