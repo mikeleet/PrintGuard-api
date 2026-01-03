@@ -73,6 +73,33 @@ docker run \
   oliverbravery/printguard:local
 ```
 
+### TrueNAS SCALE (Custom App) deployment (using your image)
+
+If you are deploying PrintGuard on TrueNAS SCALE using a Custom App and want to use your own pre-built image (instead of building from source), you can use the following as a starting point.
+
+Docker run equivalent:
+```bash
+docker run --name printguard \
+  -p 8000:8000 \
+  -v "/mnt/<pool>/<dataset>/printguard-data:/data" \
+  <YOUR_IMAGE>:<TAG>
+```
+
+TrueNAS Custom App fields (UI):
+
+- **Image repository**: `<YOUR_IMAGE>`
+- **Image tag**: `<TAG>`
+- **Port forwarding**:
+  - **Container port**: `8000`
+  - **Host port**: `8000`
+- **Storage**:
+  - **Host path**: `/mnt/<pool>/<dataset>/printguard-data`
+  - **Mount path**: `/data`
+
+Optional:
+
+- If you need camera device access from the host, you may need to enable the equivalent of Docker `--privileged`/device passthrough in your TrueNAS app configuration.
+
 ## Initial Configuration
 After installation, you will need to configure PrintGuard. First, visit the setup page at `http://localhost:8000/setup`. The setup page allows users to configure network access to the locally hosted site, including seamless options for exposing it via popular reverse proxies for a streamlined setup. All setups require you to choose to either automatically generate or import self-signed SSL certificates for secure access, alongside VAPID keys which are required for web push notifications.
 
@@ -130,16 +157,22 @@ Example response:
 
 This example shows how to capture a snapshot from a Home Assistant camera entity and upload it to PrintGuard for analysis.
 
-Add a `shell_command` (e.g. in `configuration.yaml`):
+Define a `command_line` sensor (e.g. in `configuration.yaml`) that uploads the latest snapshot and parses the JSON response:
 ```yaml
-shell_command:
-  printguard_external_detect: >-
-    curl -k -sS
-    -X POST "https://PRINTGUARD_HOST:8000/api/external/detect"
-    -F "file=@{{ filename }}"
+command_line:
+  - sensor:
+      name: PrintGuard Failure Score
+      command: >-
+        curl -k -sS
+        -X POST "https://PRINTGUARD_HOST:8000/api/external/detect"
+        -F "file=@/config/www/printguard/latest.jpg"
+      value_template: "{{ value_json.failure_score }}"
+      json_attributes:
+        - is_failure
+        - filename
 ```
 
-Example automation:
+Example automation (snapshot, run detection, pause print on failure):
 ```yaml
 automation:
   - alias: "PrintGuard - Analyze camera snapshot"
@@ -154,7 +187,15 @@ automation:
         data:
           filename: "/config/www/printguard/latest.jpg"
 
-      - service: shell_command.printguard_external_detect
-        data:
-          filename: "/config/www/printguard/latest.jpg"
+      - service: homeassistant.update_entity
+        target:
+          entity_id: sensor.printguard_failure_score
+
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ states('sensor.printguard_failure_score')|float(0) == 1 }}"
+            sequence:
+              - service: octoprint.pause_print
+                data: {}
 ```
