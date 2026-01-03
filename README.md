@@ -125,3 +125,35 @@ Example response:
   "is_failure": true
 }
 ```
+
+### Home Assistant example (camera snapshot upload)
+
+This example shows how to capture a snapshot from a Home Assistant camera entity and upload it to PrintGuard for analysis.
+
+Add a `shell_command` (e.g. in `configuration.yaml`):
+```yaml
+shell_command:
+  printguard_external_detect: >-
+    curl -k -sS
+    -X POST "https://PRINTGUARD_HOST:8000/api/external/detect"
+    -F "file=@{{ filename }}"
+```
+
+Example automation:
+```yaml
+automation:
+  - alias: "PrintGuard - Analyze camera snapshot"
+    mode: single
+    trigger:
+      - platform: time_pattern
+        seconds: "/30"
+    action:
+      - service: camera.snapshot
+        target:
+          entity_id: camera.my_printer_cam
+        data:
+          filename: "/config/www/printguard/latest.jpg"
+
+      - service: shell_command.printguard_external_detect
+        data:
+          filename: "/config/www/printguard/latest.jpg"
