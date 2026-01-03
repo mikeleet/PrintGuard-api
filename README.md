@@ -157,3 +157,4 @@ automation:
       - service: shell_command.printguard_external_detect
         data:
           filename: "/config/www/printguard/latest.jpg"
+```
