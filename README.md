@@ -105,6 +105,18 @@ curl -k -X POST "https://localhost:8000/api/external/detect" \
   -F "file=@/path/to/image.jpg"
 ```
 
+Example (Python):
+```python
+import requests
+
+url = "https://localhost:8000/api/external/detect"
+with open("/path/to/image.jpg", "rb") as f:
+    files = {"file": ("image.jpg", f, "image/jpeg")}
+    resp = requests.post(url, files=files, verify=False)
+    resp.raise_for_status()
+    print(resp.json())
+```
+
 Example response:
 ```json
 {
