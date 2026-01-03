@@ -185,45 +185,213 @@ Example response:
 
 This example shows how to capture a snapshot from a Home Assistant camera entity and upload it to PrintGuard for analysis.
 
-Define a `command_line` sensor (e.g. in `configuration.yaml`) that uploads the latest snapshot and parses the JSON response:
+#### 2. Update Home Assistant (`configuration.yaml`)
+
+Since you changed the port on the NAS, you must update the `command_line` sensors in Home Assistant to match.
+
+Find and replace all instances of `:9091` with `:8000` in your `configuration.yaml`.
+
+Here is the corrected block for your reference:
+
 ```yaml
 command_line:
+  # ---------------------------------------------------------
+  # A1 PRINTER SENSORS
+  # ---------------------------------------------------------
   - sensor:
-      name: PrintGuard Failure Score
+      name: PrintGuard A1 Internal Score
+      unique_id: printguard_a1_internal_score
       command: >-
-        curl -k -sS
-        -X POST "https://PRINTGUARD_HOST:8000/api/external/detect"
-        -F "file=@/config/www/printguard/latest.jpg"
+        curl -k -sS --connect-timeout 10 -X POST "https://192.168.0.201:8000/api/external/detect"
+        -F "file=@/config/www/tmp_a1_snapshot_1.jpg"
       value_template: "{{ value_json.failure_score }}"
       json_attributes:
         - is_failure
-        - filename
+      scan_interval: 31536000
+
+  - sensor:
+      name: PrintGuard A1 External Score
+      unique_id: printguard_a1_external_score
+      command: >-
+        curl -k -sS --connect-timeout 10 -X POST "https://192.168.0.201:8000/api/external/detect"
+        -F "file=@/config/www/tmp_a1_snapshot_2.jpg"
+      value_template: "{{ value_json.failure_score }}"
+      json_attributes:
+        - is_failure
+      scan_interval: 31536000
+
+  # ---------------------------------------------------------
+  # P1S PRINTER SENSORS
+  # ---------------------------------------------------------
+  - sensor:
+      name: PrintGuard P1S Internal Score
+      unique_id: printguard_p1s_internal_score
+      command: >-
+        curl -k -sS --connect-timeout 10 -X POST "https://192.168.0.201:8000/api/external/detect"
+        -F "file=@/config/www/tmp_p1s_snapshot_1.jpg"
+      value_template: "{{ value_json.failure_score }}"
+      json_attributes:
+        - is_failure
+      scan_interval: 31536000
+
+  - sensor:
+      name: PrintGuard P1S External Score
+      unique_id: printguard_p1s_external_score
+      command: >-
+        curl -k -sS --connect-timeout 10 -X POST "https://192.168.0.201:8000/api/external/detect"
+        -F "file=@/config/www/tmp_p1s_snapshot_2.jpg"
+      value_template: "{{ value_json.failure_score }}"
+      json_attributes:
+        - is_failure
+      scan_interval: 31536000
 ```
 
-Example automation (snapshot, run detection, pause print on failure):
+Don't forget to restart Home Assistant after saving the file.
+
+#### Home Assistant automation example (Telegram - P1S Smart Progress Double AI Scan)
+
 ```yaml
-automation:
-  - alias: "PrintGuard - Analyze camera snapshot"
-    mode: single
-    trigger:
-      - platform: time_pattern
-        seconds: "/30"
-    action:
-      - service: camera.snapshot
-        target:
-          entity_id: camera.my_printer_cam
-        data:
-          filename: "/config/www/printguard/latest.jpg"
+alias: Telegram - P1S Smart Progress (Double AI Scan)
+description: Wakes P1S Tapo cam, scans Internal AND External views, sends results.
+trigger:
+  - entity_id: sensor.p1s_01p00c540901326_print_status
+    to: Finish
+    platform: state
+  - entity_id: sensor.p1s_01p00c540901326_print_status
+    to: Pause
+    platform: state
+  - entity_id: sensor.p1s_01p00c540901326_print_status
+    to: Prepare
+    platform: state
+  - entity_id: sensor.p1s_01p00c540901326_print_status
+    to: Failed
+    platform: state
+  - entity_id: sensor.p1s_01p00c540901326_current_layer
+    from: "0"
+    to: "1"
+    platform: state
+  - entity_id: sensor.p1s_01p00c540901326_current_layer
+    from: "1"
+    to: "2"
+    platform: state
+  - entity_id: sensor.p1s_01p00c540901326_current_layer
+    from: "2"
+    to: "3"
+    platform: state
+  - entity_id: sensor.p1s_01p00c540901326_current_layer
+    from: "3"
+    to: "4"
+    platform: state
+  - entity_id: sensor.p1s_01p00c540901326_print_progress
+    above: 4
+    platform: numeric_state
+  - entity_id: sensor.p1s_01p00c540901326_print_progress
+    above: 9
+    platform: numeric_state
+  - entity_id: sensor.p1s_01p00c540901326_print_progress
+    above: 14
+    platform: numeric_state
+  - entity_id: sensor.p1s_01p00c540901326_print_progress
+    above: 19
+    platform: numeric_state
+  - entity_id: sensor.p1s_01p00c540901326_print_progress
+    above: 29
+    platform: numeric_state
+  - entity_id: sensor.p1s_01p00c540901326_print_progress
+    above: 39
+    platform: numeric_state
+  - entity_id: sensor.p1s_01p00c540901326_print_progress
+    above: 49
+    platform: numeric_state
+  - entity_id: sensor.p1s_01p00c540901326_print_progress
+    above: 59
+    platform: numeric_state
+  - entity_id: sensor.p1s_01p00c540901326_print_progress
+    above: 69
+    platform: numeric_state
+  - entity_id: sensor.p1s_01p00c540901326_print_progress
+    above: 79
+    platform: numeric_state
+  - entity_id: sensor.p1s_01p00c540901326_print_progress
+    above: 89
+    platform: numeric_state
+  - entity_id: sensor.p1s_01p00c540901326_print_progress
+    above: 99
+    platform: numeric_state
+conditions: []
+action:
+  - action: camera.snapshot
+    target:
+      entity_id: camera.tapo_p1s_live_view
+    data:
+      filename: /config/www/tmp_p1s_snapshot_2.jpg
+  - delay:
+      seconds: 30
+  - action: camera.snapshot
+    target:
+      entity_id: camera.p1s_01p00c540901326_camera
+    data:
+      filename: /config/www/tmp_p1s_snapshot_1.jpg
+  - action: camera.snapshot
+    target:
+      entity_id: camera.tapo_p1s_live_view
+    data:
+      filename: /config/www/tmp_p1s_snapshot_2.jpg
+  - continue_on_error: true
+    action: homeassistant.update_entity
+    target:
+      entity_id: sensor.printguard_p1s_internal_score
+  - continue_on_error: true
+    action: homeassistant.update_entity
+    target:
+      entity_id: sensor.printguard_p1s_external_score
+  - delay:
+      seconds: 3
+  - action: telegram_bot.send_photo
+    data:
+      file: /config/www/tmp_p1s_snapshot_1.jpg
+      caption: >
+        Printer: {{ states('sensor.p1s_01p00c540901326_printer_name') }}
 
-      - service: homeassistant.update_entity
-        target:
-          entity_id: sensor.printguard_failure_score
+        Active Tray: {{ states('sensor.p1s_01p00c540901326_active_tray') }}
 
-      - choose:
-          - conditions:
-              - condition: template
-                value_template: "{{ states('sensor.printguard_failure_score')|float(0) == 1 }}"
-            sequence:
-              - service: octoprint.pause_print
-                data: {}
+        Status: {{ states('sensor.p1s_01p00c540901326_print_status') }}
+
+        {% set i_score = states('sensor.printguard_p1s_internal_score') %}
+        {% if i_score not in ['unknown', 'unavailable', 'None'] %}
+        Internal AI Score: {{ i_score }}
+        {% if is_state_attr('sensor.printguard_p1s_internal_score', 'is_failure', true) %}
+        POTENTIAL FAILURE DETECTED
+        {% endif %}
+        {% else %}
+        Internal AI Score: API Error (No Response)
+        {% endif %}
+
+        Stage: {{ states('sensor.p1s_01p00c540901326_current_stage') }}
+
+        Progress: {{ states('sensor.p1s_01p00c540901326_print_progress') }}%
+
+        Layer: {{ states('sensor.p1s_01p00c540901326_current_layer') }}
+
+        Remaining: {{ states('sensor.p1s_01p00c540901326_remaining_time') | float | round(2) }} hours
+
+        ETA: {{ states('sensor.p1s_01p00c540901326_end_time') }}
+      config_entry_id: 01KE0HS4Z4W5RJ9MKV0QVAWNYC
+  - action: telegram_bot.send_photo
+    data:
+      file: /config/www/tmp_p1s_snapshot_2.jpg
+      caption: >
+        External View
+
+        {% set e_score = states('sensor.printguard_p1s_external_score') %}
+        {% if e_score not in ['unknown', 'unavailable', 'None'] %}
+        External AI Score: {{ e_score }}
+        {% if is_state_attr('sensor.printguard_p1s_external_score', 'is_failure', true) %}
+        POTENTIAL FAILURE DETECTED
+        {% endif %}
+        {% else %}
+        External AI Score: API Error (No Response)
+        {% endif %}
+      config_entry_id: 01KE0HS4Z4W5RJ9MKV0QVAWNYC
+mode: single
 ```
