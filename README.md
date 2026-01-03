@@ -83,7 +83,7 @@ services:
   printguard:
     environment:
       - PRINTGUARD_SECRET_KEY=MYKEY
-    image: <YOUR_IMAGE>:<TAG>
+    image: ghcr.io/mikeleet/printguard:latest
     network_mode: bridge
     ports:
       - "8000:8000"
@@ -102,13 +102,13 @@ Docker run equivalent:
 docker run --name printguard \
   -p 8000:8000 \
   -v "/mnt/<pool>/<dataset>/printguard-data:/data" \
-  <YOUR_IMAGE>:<TAG>
+  ghcr.io/mikeleet/printguard:latest
 ```
 
 TrueNAS Custom App fields (UI):
 
-- **Image repository**: `<YOUR_IMAGE>`
-- **Image tag**: `<TAG>`
+- **Image repository**: `ghcr.io/mikeleet/printguard`
+- **Image tag**: `latest`
 - **Port forwarding**:
   - **Container port**: `8000`
   - **Host port**: `8000`
