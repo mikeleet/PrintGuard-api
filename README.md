@@ -77,6 +77,26 @@ docker run \
 
 If you are deploying PrintGuard on TrueNAS SCALE using a Custom App and want to use your own pre-built image (instead of building from source), you can use the following as a starting point.
 
+Example TrueNAS Custom App deployment YAML:
+```yaml
+services:
+  printguard:
+    environment:
+      - PRINTGUARD_SECRET_KEY=MYKEY
+    image: <YOUR_IMAGE>:<TAG>
+    network_mode: bridge
+    ports:
+      - "8000:8000"
+    privileged: true
+    restart: unless-stopped
+    volumes:
+      - printguard_data:/data
+      - /etc/localtime:/etc/localtime:ro
+
+volumes:
+  printguard_data: null
+```
+
 Docker run equivalent:
 ```bash
 docker run --name printguard \
@@ -99,6 +119,15 @@ TrueNAS Custom App fields (UI):
 Optional:
 
 - If you need camera device access from the host, you may need to enable the equivalent of Docker `--privileged`/device passthrough in your TrueNAS app configuration.
+
+Publishing your own image to GHCR (optional):
+
+- If you want TrueNAS to pull your custom build from a registry, you can publish your image to GitHub Container Registry (GHCR) and reference it in the YAML above.
+- Example (replace `<gh-user-or-org>` and choose a tag):
+```bash
+docker build -t ghcr.io/<gh-user-or-org>/printguard:latest .
+docker push ghcr.io/<gh-user-or-org>/printguard:latest
+```
 
 ## Initial Configuration
 After installation, you will need to configure PrintGuard. First, visit the setup page at `http://localhost:8000/setup`. The setup page allows users to configure network access to the locally hosted site, including seamless options for exposing it via popular reverse proxies for a streamlined setup. All setups require you to choose to either automatically generate or import self-signed SSL certificates for secure access, alongside VAPID keys which are required for web push notifications.
